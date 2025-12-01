@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Image Generator (Wikimedia Commons)</title>
+  <link rel= "stylesheet" href= "stylesheet.css">
+</head>
+
+<!-- There are a lot more in-depth comments and walk-throughs in the readme -->
+<!-- Shoutout to my several CS friends for their help -->
+
+
+<body>
+<div id= "generator">
+  <h1>Random Image Generator (Wikimedia Commons)</h1>
+
+  <label>Images per category:
+    <input type = "number" id = "count" value = "2" min = "1" max = "10">
+  </label>
+
+  <h3>Select Categories:</h3>
+  <label><input type = "checkbox" value = "Cats"> Cats</label>
+  <label><input type = "checkbox" value = "Flowers"> Flowers</label>
+  <label><input type = "checkbox" value = "Technology"> Technology</label>
+  <label><input type = "checkbox" value = "Dogs"> Dogs</label>
+  <label><input type = "checkbox" value = "City"> City</label>
+
+  <br><br>
+  <button id = "generateBtn">Generate Images</button>
+  <div class = "status" id = "status"></div>
+  <div class = "gallery" id = "gallery"></div>
+</div>
+
+
+<script>
+
+// API wowie
+const API = "https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query&prop=imageinfo&iiprop=url";
+
+// Grabbing the user selections/inputs
+const gallery = document.getElementById("gallery");
+const statusText = document.getElementById("status");
+const generateBtn = document.getElementById("generateBtn");
+
+// Fetching the images from the Wikimedia Commons category the user selects
+async function fetchImagesFromCategory(category, count) {
+  const searchUrl =
+    `https://commons.wikimedia.org/w/api.php?origin=*&format=json&action=query&generator=categorymembers&gcmtitle=Category:${encodeURIComponent(
+      category
+    )}&gcmtype=file&gcmlimit=50&prop=imageinfo&iiprop=url`;
+
+  const response = await fetch(searchUrl);
+  const data = await response.json();
+
+  if (!data.query || !data.query.pages) return [];
+
+  const pages = Object.values(data.query.pages);
+  const images = pages.filter(p => p.imageinfo);
+
+  if (images.length === 0) return [];
+
+  const selected = [];
+  for (let i = 0; i < count; i++) {
+    const random = images[Math.floor(Math.random() * images.length)];
+    selected.push(random.imageinfo[0].url);
+  }
+
+  return selected;
+}
+
+// Creating image cardzzz
+function createCard(url, category, index) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const img = document.createElement("img");
+  img.src = url;
+  img.alt = category;
+
+  const footer = document.createElement("div");
+  footer.className = "footer";
+  footer.textContent = `${category} - #${index + 1}`;
+
+  card.appendChild(img);
+  card.appendChild(footer);
+  return card;
+}
+
+// Showing the images yippee
+generateBtn.addEventListener("click", async () => {
+  const count = parseInt(document.getElementById("count").value);
+  const categories = [...document.querySelectorAll("input[type=checkbox]:checked")].map(c => c.value);
+
+  if (categories.length === 0) {
+    statusText.textContent = "Select at least one category. Dumbo. (Sorry)";
+    return;
+  }
+
+  gallery.innerHTML = "";
+  statusText.textContent = "Loading images… Don't be impatient, we're trying our best";
+  generateBtn.disabled = true;
+
+  try {
+    const categoryPromises = categories.map(cat =>
+      fetchImagesFromCategory(cat, count)
+    );
+
+    const allResults = await Promise.all(categoryPromises);
+
+    allResults.forEach((imageList, idx) => {
+      const category = categories[idx];
+      imageList.forEach((url, i) => {
+        gallery.appendChild(createCard(url, category, i));
+      });
+    });
+
+    statusText.textContent = "Done! :p";
+  } catch (err) {
+    statusText.textContent = "Error loading images. Oopsie doopsie, we made a woopsie/";
+    console.error(err);
+  }
+
+  generateBtn.disabled = false;
+});
+</script>
+
+</body>
+</html>
